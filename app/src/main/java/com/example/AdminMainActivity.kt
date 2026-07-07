@@ -30,6 +30,9 @@ class AdminMainActivity : ComponentActivity() {
             GiftViewModelFactory(repository)
         )[GiftViewModel::class.java]
 
+        // Auto sync with cloud database on startup
+        viewModel.syncWithCloud(this)
+
         enableEdgeToEdge()
         setContent {
             val isDarkTheme by viewModel.isDarkTheme.collectAsState()

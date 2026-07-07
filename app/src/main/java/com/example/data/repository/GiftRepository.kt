@@ -57,6 +57,74 @@ class GiftRepository(private val giftDao: GiftDao) {
         giftDao.clearCart()
     }
 
+    suspend fun syncWithCloud(context: Context): Boolean {
+        return kotlinx.coroutines.withContext(Dispatchers.IO) {
+            try {
+                val cloudProducts = com.example.data.remote.CloudDatabaseSync.fetchProducts(context)
+                if (cloudProducts != null) {
+                    val localProducts = giftDao.getAllProductsDirect()
+                    val localStates = localProducts.associateBy { it.id }
+                    
+                    val productsToInsert = cloudProducts.map { cloudProduct ->
+                        val local = localStates[cloudProduct.id]
+                        if (local != null) {
+                            cloudProduct.copy(
+                                isFavorite = local.isFavorite,
+                                isInCart = local.isInCart,
+                                cartQuantity = local.cartQuantity
+                            )
+                        } else {
+                            cloudProduct
+                        }
+                    }
+                    
+                    if (productsToInsert.isNotEmpty()) {
+                        val cloudIds = productsToInsert.map { it.id }.toSet()
+                        val itemsToDelete = localProducts.filter { it.id !in cloudIds }
+                        
+                        giftDao.insertProducts(productsToInsert)
+                        if (itemsToDelete.isNotEmpty()) {
+                            giftDao.deleteProducts(itemsToDelete)
+                        }
+                    }
+                    true
+                } else {
+                    false
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("GiftRepository", "Failed to sync with cloud", e)
+                false
+            }
+        }
+    }
+
+    suspend fun pushLocalToCloud(context: Context): Boolean {
+        return kotlinx.coroutines.withContext(Dispatchers.IO) {
+            try {
+                val localProducts = giftDao.getAllProductsDirect()
+                com.example.data.remote.CloudDatabaseSync.pushProducts(context, localProducts)
+            } catch (e: Exception) {
+                android.util.Log.e("GiftRepository", "Failed to push local to cloud", e)
+                false
+            }
+        }
+    }
+
+    suspend fun addProduct(context: Context, product: GiftProduct) {
+        // Since we are adding, let's find the max ID locally first to assign a unique sequential ID
+        val localProducts = giftDao.getAllProductsDirect()
+        val nextId = (localProducts.maxOfOrNull { it.id } ?: 0) + 1
+        val assignedProduct = product.copy(id = nextId)
+        
+        giftDao.insertProducts(listOf(assignedProduct))
+        pushLocalToCloud(context)
+    }
+
+    suspend fun updateProduct(context: Context, product: GiftProduct) {
+        giftDao.updateProduct(product)
+        pushLocalToCloud(context)
+    }
+
     suspend fun addProduct(product: GiftProduct) {
         giftDao.insertProducts(listOf(product))
     }

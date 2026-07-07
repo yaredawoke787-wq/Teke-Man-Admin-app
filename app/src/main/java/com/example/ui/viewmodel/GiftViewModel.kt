@@ -79,6 +79,12 @@ class GiftViewModel(private val repository: GiftRepository) : ViewModel() {
 
     val selectedProduct = MutableStateFlow<GiftProduct?>(null)
 
+    private val _isSyncing = MutableStateFlow(false)
+    val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
+
+    private val _syncStatus = MutableSharedFlow<Boolean>()
+    val syncStatus: SharedFlow<Boolean> = _syncStatus.asSharedFlow()
+
     private val _isDarkTheme = MutableStateFlow(true)
     val isDarkTheme: StateFlow<Boolean> = _isDarkTheme.asStateFlow()
 
@@ -149,6 +155,34 @@ class GiftViewModel(private val repository: GiftRepository) : ViewModel() {
     fun clearCart() {
         viewModelScope.launch {
             repository.clearCart()
+        }
+    }
+
+    fun addProduct(context: android.content.Context, product: GiftProduct) {
+        viewModelScope.launch {
+            _isSyncing.value = true
+            repository.addProduct(context, product)
+            _isSyncing.value = false
+        }
+    }
+
+    fun updateProduct(context: android.content.Context, product: GiftProduct) {
+        viewModelScope.launch {
+            _isSyncing.value = true
+            repository.updateProduct(context, product)
+            if (selectedProduct.value?.id == product.id) {
+                selectedProduct.value = product
+            }
+            _isSyncing.value = false
+        }
+    }
+
+    fun syncWithCloud(context: android.content.Context) {
+        viewModelScope.launch {
+            _isSyncing.value = true
+            val success = repository.syncWithCloud(context)
+            _isSyncing.value = false
+            _syncStatus.emit(success)
         }
     }
 

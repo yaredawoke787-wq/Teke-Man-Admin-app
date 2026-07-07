@@ -30,6 +30,12 @@ interface GiftDao {
     @Update
     suspend fun updateProduct(product: GiftProduct)
 
+    @Query("SELECT * FROM gift_products ORDER BY id ASC")
+    suspend fun getAllProductsDirect(): List<GiftProduct>
+
+    @Delete
+    suspend fun deleteProducts(products: List<GiftProduct>)
+
     @Query("UPDATE gift_products SET isInCart = 0, cartQuantity = 0")
     suspend fun clearCart()
 }

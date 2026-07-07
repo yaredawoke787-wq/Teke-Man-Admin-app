@@ -242,6 +242,32 @@ fun HomeScreen(
 
                 // Header Action Buttons + Circular gold-outlined profile logo with soft inner glow
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    val isSyncing by viewModel.isSyncing.collectAsState()
+                    IconButton(
+                        onClick = { 
+                            viewModel.syncWithCloud(context)
+                        },
+                        modifier = Modifier
+                            .background(if (isDarkTheme) Color.White.copy(alpha = 0.05f) else SleekLightGray, CircleShape)
+                            .size(38.dp)
+                    ) {
+                        if (isSyncing) {
+                            CircularProgressIndicator(
+                                color = Color(0xFFF2B705),
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Sync",
+                                tint = MaterialTheme.colorScheme.onBackground,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+
                     Box {
                         IconButton(
                             onClick = onNavigateToCart,

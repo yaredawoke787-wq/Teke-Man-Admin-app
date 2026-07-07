@@ -69,6 +69,8 @@ fun AdminScreen(
     var settingsUser by remember { mutableStateOf(adminUsername) }
     var settingsPass by remember { mutableStateOf(adminPassword) }
     var settingsBtnName by remember { mutableStateOf(buttonName) }
+    var adminFirebaseUrl by remember { mutableStateOf(prefs.getString("firebase_db_url", "https://teke-man-promotion-default-rtdb.europe-west1.firebasedatabase.app/") ?: "https://teke-man-promotion-default-rtdb.europe-west1.firebasedatabase.app/") }
+    var settingsFirebaseUrl by remember { mutableStateOf(adminFirebaseUrl) }
 
     // Admin UI States
     var editingProduct by remember { mutableStateOf<GiftProduct?>(null) }
@@ -595,6 +597,24 @@ fun AdminScreen(
                                         shape = RoundedCornerShape(8.dp)
                                     )
 
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    OutlinedTextField(
+                                        value = settingsFirebaseUrl,
+                                        onValueChange = { settingsFirebaseUrl = it },
+                                        label = { Text("Firebase Database URL (e.g. for backup/restore)", color = Color.Gray) },
+                                        placeholder = { Text("https://my-project-id.firebaseio.com/", color = Color.DarkGray) },
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = LuxuryGold,
+                                            unfocusedBorderColor = Color.White.copy(alpha = 0.1f),
+                                            focusedTextColor = Color.White,
+                                            unfocusedTextColor = Color.White
+                                        ),
+                                        singleLine = true,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
+
                                     Spacer(modifier = Modifier.height(16.dp))
 
                                     Button(
@@ -605,14 +625,19 @@ fun AdminScreen(
                                                 adminUsername = settingsUser.trim()
                                                 adminPassword = settingsPass.trim()
                                                 buttonName = settingsBtnName.trim()
+                                                adminFirebaseUrl = settingsFirebaseUrl.trim()
 
                                                 prefs.edit()
                                                     .putString("admin_username", adminUsername)
                                                     .putString("admin_password", adminPassword)
                                                     .putString("admin_button_name", buttonName)
+                                                    .putString("firebase_db_url", adminFirebaseUrl)
                                                     .apply()
 
-                                                Toast.makeText(context, "Config saved successfully! Button renamed to \"$buttonName\"", Toast.LENGTH_SHORT).show()
+                                                // Trigger a fresh sync using the new Firebase Database URL
+                                                viewModel.syncWithCloud(context)
+
+                                                Toast.makeText(context, "Config saved successfully! Database URL updated.", Toast.LENGTH_SHORT).show()
                                                 isSettingsOpen = false
                                             }
                                         },
@@ -1029,7 +1054,7 @@ fun AdminScreen(
                                             imageResId = if (imageUrlVal != null) 0 else formImageResSelection,
                                             videoUrl = videoUrlVal
                                         )
-                                        viewModel.updateProduct(updated)
+                                        viewModel.updateProduct(context, updated)
                                         Toast.makeText(context, "Product successfully updated!", Toast.LENGTH_LONG).show()
                                     }
                                 } else {
@@ -1045,7 +1070,7 @@ fun AdminScreen(
                                         category = formCategory,
                                         videoUrl = videoUrlVal
                                     )
-                                    viewModel.addProduct(newProduct)
+                                    viewModel.addProduct(context, newProduct)
                                     Toast.makeText(context, "Product successfully added!", Toast.LENGTH_LONG).show()
                                 }
 
