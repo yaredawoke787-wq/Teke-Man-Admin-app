@@ -187,6 +187,20 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
+            // Dynamic customizable admin button
+            val prefs = remember { context.getSharedPreferences("teke_admin_prefs", android.content.Context.MODE_PRIVATE) }
+            val adminButtonName = prefs.getString("admin_button_name", "teke man") ?: "teke man"
+
+            SettingsListItem(
+                title = adminButtonName,
+                subtitle = if (currentLanguage == "AM") "ምርቶችን ለመጨመር እና ለማሻሻል እዚህ ይጫኑ" else "Upload & edit products inside the boutique",
+                icon = Icons.Default.Build,
+                isDarkTheme = isDarkThemeEnabled,
+                onClick = onNavigateToAdmin
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
             // Share App
             SettingsListItem(
                 title = TekeLocalization.getString("share_boutique", currentLanguage),

@@ -47,6 +47,29 @@ fun AdminScreen(
     val products by viewModel.allProducts.collectAsState()
     val context = LocalContext.current
 
+    // Security & Configuration states using SharedPreferences
+    val prefs = remember { context.getSharedPreferences("teke_admin_prefs", android.content.Context.MODE_PRIVATE) }
+    
+    var adminUsername by remember { mutableStateOf(prefs.getString("admin_username", "tekemanpromotion122100") ?: "tekemanpromotion122100") }
+    var adminPassword by remember { mutableStateOf(prefs.getString("admin_password", "tekegift!@#123") ?: "tekegift!@#123") }
+    var buttonName by remember { mutableStateOf(prefs.getString("admin_button_name", "teke man") ?: "teke man") }
+    var isBlocked by remember { mutableStateOf(prefs.getBoolean("admin_is_blocked", false)) }
+    var failedAttempts by remember { mutableStateOf(prefs.getInt("admin_failed_attempts", 0)) }
+
+    // Session login state
+    var isLoggedIn by remember { mutableStateOf(false) }
+
+    // Login Form Inputs
+    var loginUser by remember { mutableStateOf("") }
+    var loginPass by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
+
+    // Admin Custom Settings Form Inputs (inside the admin setting section)
+    var isSettingsOpen by remember { mutableStateOf(false) }
+    var settingsUser by remember { mutableStateOf(adminUsername) }
+    var settingsPass by remember { mutableStateOf(adminPassword) }
+    var settingsBtnName by remember { mutableStateOf(buttonName) }
+
     // Admin UI States
     var editingProduct by remember { mutableStateOf<GiftProduct?>(null) }
     var isAddingNew by remember { mutableStateOf(false) }
@@ -100,6 +123,242 @@ fun AdminScreen(
     val LuxuryGold = Color(0xFFF2B705)
     val DarkSlateBg = Color(0xFF111115)
     val CardBg = Color(0xFF1B1B22)
+
+    // 1. DEVICE BLOCKED SCREEN (3 failed attempts lockout)
+    if (isBlocked) {
+        var developerTapCount by remember { mutableStateOf(0) }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFF0D0D11))
+                .padding(24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = "Security Blocked",
+                    tint = Color.Red,
+                    modifier = Modifier
+                        .size(80.dp)
+                        .clickable {
+                            developerTapCount++
+                            if (developerTapCount >= 5) {
+                                // BACKDOOR: Unblock and reset attempts
+                                prefs.edit()
+                                    .putBoolean("admin_is_blocked", false)
+                                    .putInt("admin_failed_attempts", 0)
+                                    .apply()
+                                isBlocked = false
+                                failedAttempts = 0
+                                Toast.makeText(context, "Developer Backdoor: Device Unblocked!", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+                Text(
+                    text = "DEVICE BLOCKED",
+                    color = Color.White,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Serif,
+                    letterSpacing = 2.sp
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "This device has been permanently blocked after 3 failed login attempts to the Teke Man Administration Portal.\n\nPlease contact Teke Man Promotion support to verify identity and unlock.",
+                    color = Color.Gray,
+                    fontSize = 14.sp,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 22.sp,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+                Spacer(modifier = Modifier.height(30.dp))
+                OutlinedButton(
+                    onClick = { onBackClick() },
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(text = "Exit Portal", color = Color.White)
+                }
+            }
+        }
+        return
+    }
+
+    // 2. ADMIN PORTAL LOGIN SECURITY SCREEN
+    if (!isLoggedIn) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(DarkSlateBg)
+                .statusBarsPadding()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                // Header brand
+                Text(
+                    text = "TEKE MAN PROMOTION",
+                    color = LuxuryGold,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 3.sp
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "Admin Security Gate",
+                    color = Color.White,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Serif
+                )
+                Spacer(modifier = Modifier.height(32.dp))
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = CardBg),
+                    shape = RoundedCornerShape(24.dp),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Text(
+                            text = "Please authenticate with your administrative credentials to continue.",
+                            color = Color.Gray,
+                            fontSize = 12.sp,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                        )
+
+                        OutlinedTextField(
+                            value = loginUser,
+                            onValueChange = { loginUser = it },
+                            label = { Text("Username", color = Color.Gray) },
+                            leadingIcon = { Icon(Icons.Default.Person, contentDescription = "User", tint = LuxuryGold) },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = LuxuryGold,
+                                unfocusedBorderColor = Color.White.copy(alpha = 0.1f),
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White
+                            ),
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+
+                        OutlinedTextField(
+                            value = loginPass,
+                            onValueChange = { loginPass = it },
+                            label = { Text("Password", color = Color.Gray) },
+                            leadingIcon = { Icon(Icons.Default.Lock, contentDescription = "Lock", tint = LuxuryGold) },
+                            trailingIcon = {
+                                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                    Icon(
+                                        imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                        contentDescription = "Toggle password",
+                                        tint = Color.Gray
+                                    )
+                                }
+                            },
+                            visualTransformation = if (passwordVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = LuxuryGold,
+                                unfocusedBorderColor = Color.White.copy(alpha = 0.1f),
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White
+                            ),
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+
+                        val remaining = 3 - failedAttempts
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Attempts Remaining:",
+                                color = Color.Gray,
+                                fontSize = 11.sp
+                            )
+                            Text(
+                                text = "$remaining / 3",
+                                color = if (remaining <= 1) Color.Red else LuxuryGold,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Button(
+                            onClick = {
+                                if (loginUser.trim() == adminUsername && loginPass == adminPassword) {
+                                    failedAttempts = 0
+                                    prefs.edit().putInt("admin_failed_attempts", 0).apply()
+                                    isLoggedIn = true
+                                    Toast.makeText(context, "Authentication Successful!", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    failedAttempts++
+                                    prefs.edit().putInt("admin_failed_attempts", failedAttempts).apply()
+                                    if (failedAttempts >= 3) {
+                                        isBlocked = true
+                                        prefs.edit().putBoolean("admin_is_blocked", true).apply()
+                                        Toast.makeText(context, "Too many wrong attempts. Device Blocked!", Toast.LENGTH_LONG).show()
+                                    } else {
+                                        Toast.makeText(context, "Invalid credentials! Attempts remaining: ${3 - failedAttempts}", Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = LuxuryGold),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(
+                                text = "LOG IN",
+                                color = Color.Black,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp
+                            )
+                        }
+
+                        OutlinedButton(
+                            onClick = { onBackClick() },
+                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(
+                                text = "CANCEL",
+                                color = Color.White,
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        return
+    }
 
     Box(
         modifier = Modifier
@@ -229,6 +488,145 @@ fun AdminScreen(
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 13.sp
                                     )
+                                }
+                            }
+                        }
+
+                        // Expandable System Config Card
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp)
+                                .border(
+                                    width = if (isSettingsOpen) 1.dp else 0.dp,
+                                    color = if (isSettingsOpen) LuxuryGold else Color.Transparent,
+                                    shape = RoundedCornerShape(16.dp)
+                                ),
+                            colors = CardDefaults.cardColors(containerColor = CardBg),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { isSettingsOpen = !isSettingsOpen },
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Default.Settings,
+                                            contentDescription = "Settings",
+                                            tint = LuxuryGold,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "PORTAL & BUTTON SETTINGS",
+                                            color = Color.White,
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            letterSpacing = 1.sp
+                                        )
+                                    }
+                                    Icon(
+                                        imageVector = if (isSettingsOpen) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                        contentDescription = "Toggle Settings",
+                                        tint = LuxuryGold
+                                    )
+                                }
+
+                                if (isSettingsOpen) {
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Spacer(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(1.dp)
+                                            .background(Color.White.copy(alpha = 0.08f))
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    OutlinedTextField(
+                                        value = settingsBtnName,
+                                        onValueChange = { settingsBtnName = it },
+                                        label = { Text("Button Name (User App)", color = Color.Gray) },
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = LuxuryGold,
+                                            unfocusedBorderColor = Color.White.copy(alpha = 0.1f),
+                                            focusedTextColor = Color.White,
+                                            unfocusedTextColor = Color.White
+                                        ),
+                                        singleLine = true,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
+
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    OutlinedTextField(
+                                        value = settingsUser,
+                                        onValueChange = { settingsUser = it },
+                                        label = { Text("New Portal Username", color = Color.Gray) },
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = LuxuryGold,
+                                            unfocusedBorderColor = Color.White.copy(alpha = 0.1f),
+                                            focusedTextColor = Color.White,
+                                            unfocusedTextColor = Color.White
+                                        ),
+                                        singleLine = true,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
+
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    OutlinedTextField(
+                                        value = settingsPass,
+                                        onValueChange = { settingsPass = it },
+                                        label = { Text("New Portal Password", color = Color.Gray) },
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = LuxuryGold,
+                                            unfocusedBorderColor = Color.White.copy(alpha = 0.1f),
+                                            focusedTextColor = Color.White,
+                                            unfocusedTextColor = Color.White
+                                        ),
+                                        singleLine = true,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
+
+                                    Spacer(modifier = Modifier.height(16.dp))
+
+                                    Button(
+                                        onClick = {
+                                            if (settingsBtnName.trim().isEmpty() || settingsUser.trim().isEmpty() || settingsPass.trim().isEmpty()) {
+                                                Toast.makeText(context, "Fields cannot be empty!", Toast.LENGTH_SHORT).show()
+                                            } else {
+                                                adminUsername = settingsUser.trim()
+                                                adminPassword = settingsPass.trim()
+                                                buttonName = settingsBtnName.trim()
+
+                                                prefs.edit()
+                                                    .putString("admin_username", adminUsername)
+                                                    .putString("admin_password", adminPassword)
+                                                    .putString("admin_button_name", buttonName)
+                                                    .apply()
+
+                                                Toast.makeText(context, "Config saved successfully! Button renamed to \"$buttonName\"", Toast.LENGTH_SHORT).show()
+                                                isSettingsOpen = false
+                                            }
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = LuxuryGold),
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(10.dp)
+                                    ) {
+                                        Text(
+                                            text = "SAVE CHANGES",
+                                            color = Color.Black,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 12.sp
+                                        )
+                                    }
                                 }
                             }
                         }
